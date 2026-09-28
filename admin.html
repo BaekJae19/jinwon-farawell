@@ -126,7 +126,7 @@
     const header = ['이름', '1차', '2차', '한마디', '응답 일시'];
     const lines = responses.map((r) => [
       r.name, FIRST[r.first][0], r.first === 'yes' ? (r.second === 'yes' ? '함께' : '1차만') : '', r.message || '', formatDate(r.updatedAt)
-    ].map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+    ].map((v) => '"' + String(v).replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""') + '"').join(',')); // 엑셀이 수식으로 실행하지 않게 ' 를 붙인다
     const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
