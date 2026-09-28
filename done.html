@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>응답 완료 · 진원이 송별회</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <section class="done">
+    <div class="done-icon">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <div class="center" style="display: flex; flex-direction: column; gap: 8px;">
+      <h1 class="h1">응답이 전달되었습니다</h1>
+      <p class="sub" style="font-size: 15px;">10월 1일 목요일에 만나요.</p>
+    </div>
+
+    <div class="card summary">
+      <div class="summary-row"><span class="k">이름</span><span class="v" id="s-name">[이름]</span></div>
+      <div class="summary-row"><span class="k">1차</span><span class="badge yes" id="s-first">참석</span></div>
+      <div class="summary-row" id="s-second-row"><span class="k">2차</span><span class="badge second" id="s-second">함께해요</span></div>
+      <div class="divider"></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span class="k" style="font-size: 14px; color: var(--label-sub);">진원이에게 한마디</span>
+        <span class="value-sub" id="s-message">[남긴 메시지]</span>
+      </div>
+    </div>
+
+    <a class="btn btn-outline lg" id="calendar" style="width: 100%; height: 48px; font-size: 15px;" href="#">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      캘린더에 추가 (10. 1 목)
+    </a>
+  </section>
+
+  <div class="row" style="padding: 12px 20px 28px;">
+    <a class="btn btn-outline lg" href="rsvp.html">응답 수정</a>
+    <a class="btn btn-primary" href="index.html">초대장 보기</a>
+  </div>
+</main>
+
+<script>
+  const FIRST = { yes: ['참석', 'yes'], no: ['불참', 'no'], maybe: ['미정', 'maybe'] };
+  const data = JSON.parse(sessionStorage.getItem('rsvp') || 'null');
+
+  if (data) {
+    document.getElementById('s-name').textContent = data.name;
+    const first = document.getElementById('s-first');
+    first.textContent = FIRST[data.first][0];
+    first.className = 'badge ' + FIRST[data.first][1];
+
+    if (data.first === 'yes') {
+      const second = document.getElementById('s-second');
+      second.textContent = data.second === 'yes' ? '함께해요' : '1차만';
+      second.className = data.second === 'yes' ? 'badge second' : 'badge maybe';
+    } else {
+      document.getElementById('s-second-row').hidden = true;
+    }
+    document.getElementById('s-message').textContent = data.message || '없음';
+  }
+
+  // TODO: .ics 파일 생성 또는 구글 캘린더 링크로 교체 (시작 시간 확정 후)
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>응답 현황 · 진원이 송별회</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="admin">
+<header class="admin-header">
+  <span class="name">진원이 송별회</span>
+  <span class="tag">주최자</span>
+  <span class="spacer"></span>
+  <button type="button" class="btn btn-outline btn-sm" id="copy-invite">초대장 링크 복사</button>
+  <button type="button" class="btn btn-outline btn-sm" id="export-csv">CSV 내보내기</button>
+</header>
+
+<main class="admin-main">
+  <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+    <h1 class="h1">응답 현황</h1>
+    <p class="caption" style="font-size: 14px;">10. 1 (목) · 회신 마감 [YYYY.MM.DD]</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="label">전체 응답</span><span class="num"><span id="c-total">0</span><small> 건</small></span></div>
+    <div class="stat"><span class="label">1차 참석</span><span class="num"><span id="c-yes">0</span><small> 명</small></span></div>
+    <div class="stat"><span class="label">불참</span><span class="num"><span id="c-no">0</span><small> 명</small></span></div>
+    <div class="stat"><span class="label">미정</span><span class="num"><span id="c-maybe">0</span><small> 명</small></span></div>
+    <div class="stat primary"><span class="label">2차 참석 (자룡 T 합류)</span><span class="num"><span id="c-second">0</span><small> 명</small></span></div>
+  </div>
+
+  <div class="table-card">
+    <div class="toolbar">
+      <button type="button" class="filter" data-filter="all" aria-pressed="true">전체</button>
+      <button type="button" class="filter" data-filter="yes" aria-pressed="false">참석</button>
+      <button type="button" class="filter" data-filter="no" aria-pressed="false">불참</button>
+      <button type="button" class="filter" data-filter="maybe" aria-pressed="false">미정</button>
+      <button type="button" class="filter" data-filter="second" aria-pressed="false">2차 참석</button>
+      <span class="spacer"></span>
+      <label class="sr-only" for="search">이름으로 검색</label>
+      <input class="input search" id="search" type="search" placeholder="이름으로 검색">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>이름</th><th>1차</th><th>2차</th><th>진원이에게 한마디</th><th>응답 일시</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p class="empty" id="empty" hidden>아직 응답이 없습니다.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+  // TODO: 백엔드에서 응답 목록 불러오기
+  // 형식: { name, first: 'yes'|'no'|'maybe', second: 'yes'|'no'|'', message, createdAt }
+  let responses = [];
+  let filter = 'all';
+  let keyword = '';
+
+  const FIRST = { yes: ['참석', 'yes'], no: ['불참', 'no'], maybe: ['미정', 'maybe'] };
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function render() {
+    document.getElementById('c-total').textContent = responses.length;
+    document.getElementById('c-yes').textContent = responses.filter((r) => r.first === 'yes').length;
+    document.getElementById('c-no').textContent = responses.filter((r) => r.first === 'no').length;
+    document.getElementById('c-maybe').textContent = responses.filter((r) => r.first === 'maybe').length;
+    document.getElementById('c-second').textContent = responses.filter((r) => r.first === 'yes' && r.second === 'yes').length;
+
+    const list = responses.filter((r) => {
+      if (filter === 'second' && !(r.first === 'yes' && r.second === 'yes')) return false;
+      if (filter !== 'all' && filter !== 'second' && r.first !== filter) return false;
+      if (keyword && !r.name.includes(keyword)) return false;
+      return true;
+    });
+
+    document.getElementById('rows').innerHTML = list.map((r) => {
+      const f = FIRST[r.first];
+      let second = '<span class="caption">–</span>';
+      if (r.first === 'yes') {
+        second = r.second === 'yes' ? '<span class="badge second">함께해요</span>' : '<span class="caption" style="font-size:14px">1차만</span>';
+      }
+      return '<tr>' +
+        '<td class="name">' + escapeHtml(r.name) + '</td>' +
+        '<td><span class="badge ' + f[1] + '">' + f[0] + '</span></td>' +
+        '<td>' + second + '</td>' +
+        '<td class="msg" title="' + escapeHtml(r.message || '') + '">' + escapeHtml(r.message || '') + '</td>' +
+        '<td class="date">' + formatDate(r.createdAt) + '</td>' +
+        '</tr>';
+    }).join('');
+    document.getElementById('empty').hidden = list.length > 0;
+  }
+
+  document.querySelectorAll('[data-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      filter = btn.dataset.filter;
+      document.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+      render();
+    });
+  });
+  document.getElementById('search').addEventListener('input', (e) => { keyword = e.target.value.trim(); render(); });
+
+  document.getElementById('export-csv').addEventListener('click', () => {
+    const header = ['이름', '1차', '2차', '한마디', '응답 일시'];
+    const lines = responses.map((r) => [
+      r.name, FIRST[r.first][0], r.first === 'yes' ? (r.second === 'yes' ? '함께' : '1차만') : '', r.message || '', r.createdAt
+    ].map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+    const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '송별회_응답.csv';
+    a.click();
+  });
+
+  document.getElementById('copy-invite').addEventListener('click', () => {
+    navigator.clipboard.writeText(new URL('index.html', location.href).href);
+  });
+
+  render();
+</script>
+</body>
+</html>
