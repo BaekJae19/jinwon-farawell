@@ -41,9 +41,11 @@
   </div>
 </main>
 
+<script src="config.js"></script>
+<script src="common.js"></script>
 <script>
   const FIRST = { yes: ['참석', 'yes'], no: ['불참', 'no'], maybe: ['미정', 'maybe'] };
-  const data = JSON.parse(sessionStorage.getItem('rsvp') || 'null');
+  const data = JSON.parse(localStorage.getItem('rsvp') || 'null');
 
   if (data) {
     document.getElementById('s-name').textContent = data.name;
@@ -61,7 +63,37 @@
     document.getElementById('s-message').textContent = data.message || '없음';
   }
 
-  // TODO: .ics 파일 생성 또는 구글 캘린더 링크로 교체 (시작 시간 확정 후)
+  // 캘린더에 추가: 구글 캘린더 일정 만들기 링크 (시작 시간이 비어 있으면 종일 일정, 있으면 3시간 일정)
+  (function () {
+    const stamp = (d) => d.toISOString().replace(/[-:]|\.\d{3}/g, ''); // 20261001T100000Z
+    let dates;
+    if (CONFIG.firstTime) {
+      const start = new Date(CONFIG.eventDate + 'T' + CONFIG.firstTime + ':00+09:00');
+      dates = stamp(start) + '/' + stamp(new Date(start.getTime() + 3 * 3600000));
+    } else {
+      const day = new Date(CONFIG.eventDate + 'T00:00:00Z');
+      const next = new Date(day.getTime() + 86400000);
+      dates = stamp(day).slice(0, 8) + '/' + stamp(next).slice(0, 8);
+    }
+    const url = 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+      action: 'TEMPLATE',
+      text: '진원이 송별회',
+      dates: dates,
+      ctz: 'Asia/Seoul',
+      location: [CONFIG.firstPlace, CONFIG.firstAddress].filter(Boolean).join(' '),
+      details: '초대장: ' + new URL('index.html', location.href).href
+    });
+
+    const cal = document.getElementById('calendar');
+    if (/KAKAOTALK/i.test(navigator.userAgent)) {
+      // 카톡 인앱 브라우저에서는 구글 로그인이 막혀 있어 외부 브라우저로 연다
+      cal.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+    } else {
+      cal.href = url;
+      cal.target = '_blank';
+      cal.rel = 'noopener';
+    }
+  })();
 </script>
 </body>
 </html>

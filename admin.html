@@ -12,14 +12,20 @@
   <span class="name">진원이 송별회</span>
   <span class="tag">주최자</span>
   <span class="spacer"></span>
-  <button type="button" class="btn btn-outline btn-sm" id="copy-invite">초대장 링크 복사</button>
-  <button type="button" class="btn btn-outline btn-sm" id="export-csv">CSV 내보내기</button>
+  <button type="button" class="btn btn-outline btn-sm" id="copy-invite">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+    초대장 링크 복사
+  </button>
+  <button type="button" class="btn btn-outline btn-sm" id="export-csv">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>
+    CSV 내보내기
+  </button>
 </header>
 
 <main class="admin-main">
   <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
     <h1 class="h1">응답 현황</h1>
-    <p class="caption" style="font-size: 14px;">10. 1 (목) · 회신 마감 [YYYY.MM.DD]</p>
+    <p class="caption" id="subtitle" style="font-size: 14px;">10. 1 (목) · 회신 마감 [YYYY.MM.DD]</p>
   </div>
 
   <div class="stats">
@@ -39,7 +45,10 @@
       <button type="button" class="filter" data-filter="second" aria-pressed="false">2차 참석</button>
       <span class="spacer"></span>
       <label class="sr-only" for="search">이름으로 검색</label>
-      <input class="input search" id="search" type="search" placeholder="이름으로 검색">
+      <span class="search-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+        <input class="input search" id="search" type="search" placeholder="이름으로 검색">
+      </span>
     </div>
     <div class="table-wrap">
       <table>
@@ -53,9 +62,10 @@
   </div>
 </main>
 
+<script src="config.js"></script>
+<script src="common.js"></script>
 <script>
-  // TODO: 백엔드에서 응답 목록 불러오기
-  // 형식: { name, first: 'yes'|'no'|'maybe', second: 'yes'|'no'|'', message, createdAt }
+  // 형식: { name, first: 'yes'|'no'|'maybe', second: 'yes'|'no'|'', message, createdAt, updatedAt }
   let responses = [];
   let filter = 'all';
   let keyword = '';
@@ -96,8 +106,8 @@
         '<td class="name">' + escapeHtml(r.name) + '</td>' +
         '<td><span class="badge ' + f[1] + '">' + f[0] + '</span></td>' +
         '<td>' + second + '</td>' +
-        '<td class="msg" title="' + escapeHtml(r.message || '') + '">' + escapeHtml(r.message || '') + '</td>' +
-        '<td class="date">' + formatDate(r.createdAt) + '</td>' +
+        '<td class="msg" title="' + escapeHtml(r.message || '') + '"><div>' + escapeHtml(r.message || '') + '</div></td>' +
+        '<td class="date">' + formatDate(r.updatedAt) + '</td>' +
         '</tr>';
     }).join('');
     document.getElementById('empty').hidden = list.length > 0;
@@ -115,7 +125,7 @@
   document.getElementById('export-csv').addEventListener('click', () => {
     const header = ['이름', '1차', '2차', '한마디', '응답 일시'];
     const lines = responses.map((r) => [
-      r.name, FIRST[r.first][0], r.first === 'yes' ? (r.second === 'yes' ? '함께' : '1차만') : '', r.message || '', r.createdAt
+      r.name, FIRST[r.first][0], r.first === 'yes' ? (r.second === 'yes' ? '함께' : '1차만') : '', r.message || '', formatDate(r.updatedAt)
     ].map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(','));
     const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -124,11 +134,43 @@
     a.click();
   });
 
-  document.getElementById('copy-invite').addEventListener('click', () => {
-    navigator.clipboard.writeText(new URL('index.html', location.href).href);
+  // 상대 경로로 만들어야 ?key= 가 빠진 초대장 주소가 복사된다
+  document.getElementById('copy-invite').addEventListener('click', (e) => {
+    copyText(new URL('index.html', location.href).href, e.currentTarget);
   });
 
-  render();
+  // 설정값(config.js) 반영
+  const dday = ddayLabel();
+  document.getElementById('subtitle').textContent = '10. 1 (목)' +
+    (dday ? ' · ' + dday : '') +
+    (CONFIG.rsvpDeadline ? ' · 회신 마감 ' + fmtDotDate(CONFIG.rsvpDeadline) : '');
+
+  // Apps Script에서 응답 목록 불러오기 (?key= 를 Apps Script가 검증)
+  async function load() {
+    const empty = document.getElementById('empty');
+    empty.hidden = false;
+    const key = new URLSearchParams(location.search).get('key');
+    if (!key) {
+      empty.textContent = '주소 끝에 ?key=관리자키 를 붙여서 열어 주세요.';
+      return;
+    }
+    empty.textContent = '불러오는 중…';
+    try {
+      const res = await fetch(CONFIG.apiUrl + '?key=' + encodeURIComponent(key));
+      const json = await res.json();
+      if (!json.ok) {
+        empty.textContent = json.error === 'unauthorized' ? '관리자 키가 올바르지 않습니다.' : '불러오지 못했습니다: ' + json.error;
+        return;
+      }
+      responses = json.responses.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      empty.textContent = '아직 응답이 없습니다.';
+      render();
+    } catch (err) {
+      empty.textContent = '불러오지 못했습니다. 네트워크 상태와 config.js의 apiUrl을 확인해 주세요.';
+    }
+  }
+
+  load();
 </script>
 </body>
 </html>

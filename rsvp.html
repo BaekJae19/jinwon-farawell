@@ -26,7 +26,7 @@
 
       <div class="field">
         <label class="field-label" for="name">이름</label>
-        <input class="input" id="name" name="name" type="text" placeholder="이름을 입력하세요" autocomplete="name" required>
+        <input class="input" id="name" name="name" type="text" placeholder="이름을 입력하세요" autocomplete="name" maxlength="30" required>
         <p class="error" id="name-error" hidden>이름을 입력해 주세요.</p>
       </div>
 
@@ -65,31 +65,40 @@
     </div>
 
     <div class="bottom-bar">
-      <p class="caption" style="text-align: center;">응답은 [회신 마감일]까지 수정할 수 있습니다.</p>
+      <p class="caption" id="deadline" style="text-align: center;">응답은 [회신 마감일]까지 수정할 수 있습니다.</p>
       <button type="submit" class="btn btn-primary" id="submit">응답 보내기</button>
     </div>
   </form>
 </main>
 
+<script src="config.js"></script>
+<script src="common.js"></script>
 <script>
   const state = { first: 'yes', second: 'yes' };
   const secondField = document.getElementById('second-field');
+  const nameInput = document.getElementById('name');
+  const nameError = document.getElementById('name-error');
+  const submitBtn = document.getElementById('submit');
+
+  function select(group, value) {
+    state[group] = value;
+    document.querySelectorAll('[data-group="' + group + '"]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.value === value));
+    });
+    secondField.hidden = state.first !== 'yes';
+  }
 
   document.querySelectorAll('[data-group]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const group = btn.dataset.group;
-      state[group] = btn.dataset.value;
-      document.querySelectorAll('[data-group="' + group + '"]').forEach((b) => {
-        b.setAttribute('aria-pressed', String(b === btn));
-      });
-      secondField.hidden = state.first !== 'yes';
-    });
+    btn.addEventListener('click', () => select(btn.dataset.group, btn.dataset.value));
+  });
+
+  nameInput.addEventListener('input', () => {
+    nameInput.removeAttribute('aria-invalid');
+    nameError.hidden = true;
   });
 
   document.getElementById('rsvp-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nameInput = document.getElementById('name');
-    const nameError = document.getElementById('name-error');
     const name = nameInput.value.trim();
 
     if (!name) {
@@ -105,25 +114,51 @@
       name: name,
       first: state.first,                                  // yes | no | maybe
       second: state.first === 'yes' ? state.second : '',   // yes | no | ''
-      message: document.getElementById('message').value.trim(),
-      createdAt: new Date().toISOString()
+      message: document.getElementById('message').value.trim()
     };
 
-    const submitBtn = document.getElementById('submit');
     submitBtn.disabled = true;
     submitBtn.textContent = '보내는 중…';
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
     try {
-      // TODO: 백엔드로 전송 (예: Apps Script 웹 앱 URL로 POST)
-      // await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
-      sessionStorage.setItem('rsvp', JSON.stringify(payload));
+      // Content-Type을 지정하지 않아야(text/plain) Apps Script가 preflight 없이 받는다
+      const res = await fetch(CONFIG.apiUrl, { method: 'POST', body: JSON.stringify(payload), signal: controller.signal });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+      localStorage.setItem('rsvp', JSON.stringify(payload));
       location.href = 'done.html';
     } catch (err) {
       submitBtn.disabled = false;
       submitBtn.textContent = '응답 보내기';
       alert('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      clearTimeout(timer);
     }
   });
+
+  // 뒤로 가기로 돌아오면(bfcache) 버튼이 '보내는 중…'에 멈춰 있으므로 되살린다
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '응답 보내기';
+    }
+  });
+
+  // 이전에 응답했다면 그 값으로 채운다
+  const saved = JSON.parse(localStorage.getItem('rsvp') || 'null');
+  if (saved) {
+    nameInput.value = saved.name;
+    document.getElementById('message').value = saved.message || '';
+    select('second', saved.second || 'yes');
+    select('first', saved.first);
+  }
+
+  // 설정값(config.js) 반영
+  document.getElementById('deadline').textContent = CONFIG.rsvpDeadline
+    ? '응답은 ' + fmtDate(CONFIG.rsvpDeadline) + '까지 수정할 수 있습니다.'
+    : '응답은 행사 전까지 수정할 수 있습니다.';
 </script>
 </body>
 </html>
