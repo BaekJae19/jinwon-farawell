@@ -151,6 +151,9 @@ td.name { font-weight: 600; color: var(--label-strong); }
 td.msg > div { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
 td.date { color: var(--label-sub); }
 .empty { padding: 48px 20px; text-align: center; color: var(--label-sub); font-size: 15px; }
+.key-form { padding: 0 20px 48px; display: flex; justify-content: center; gap: 8px; }
+.key-form .input { width: 240px; height: 40px; font-size: 14px; }
+.key-form .btn { width: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 900px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -160,5 +163,5 @@ td.date { color: var(--label-sub); }
 }
 /* 터치 화면에서만 터치 영역 44px 확보 (데스크톱 크기는 디자인 그대로) */
 @media (pointer: coarse) {
-  .btn-sm, .filter, .search { min-height: 44px; }
+  .btn-sm, .filter, .search, .key-form .input { min-height: 44px; }
 }
